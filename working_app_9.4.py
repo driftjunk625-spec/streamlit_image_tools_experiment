@@ -180,6 +180,11 @@ class LayoutSpec:
     filename_color: Tuple[int,int,int,int]
     filename_x_offset_mm: float
     filename_y_offset_mm: float
+    # Per-side photo-edge offsets (mm)
+    photo_margin_mark_offset_b_mm: float
+    photo_margin_mark_offset_d_mm: float
+    photo_margin_mark_offset_u_mm: float
+    photo_margin_mark_offset_n_mm: float
     # Debug/fonts
     show_image_debug_overlay: bool
     debug_font_mm: float
@@ -326,13 +331,36 @@ def draw_photo_marks_content(draw: ImageDraw.ImageDraw, pagespec: PageSpec, layo
 def draw_photo_marks_in_margins(draw: ImageDraw.ImageDraw, pagespec: PageSpec, layout: LayoutSpec, img_rects: List[Tuple[int,int,int,int]], color, stroke_px):
     W, H = pagespec.size_px
     L = mm_to_px(layout.photo_tick_len_mm, pagespec.dpi)
+    # Per-edge offsets (mm) resolved to page edges based on binding side
+    offB = getattr(layout, "photo_margin_mark_offset_b_mm", 0.0)
+    offD = getattr(layout, "photo_margin_mark_offset_d_mm", 0.0)
+    offU = getattr(layout, "photo_margin_mark_offset_u_mm", 0.0)
+    offN = getattr(layout, "photo_margin_mark_offset_n_mm", 0.0)
+    bs = getattr(layout, "binding_side", "left")
+    # Defaults: U->top, N->bottom, left/right 0 unless binding is left/right
+    top_mm = offU
+    bottom_mm = offN
+    left_mm = 0.0
+    right_mm = 0.0
+    if bs == "left":
+        left_mm, right_mm = offB, offD
+    elif bs == "right":
+        right_mm, left_mm = offB, offD
+    elif bs == "top":
+        top_mm, bottom_mm = offB, offD
+    elif bs == "bottom":
+        bottom_mm, top_mm = offB, offD
+    offx_left  = mm_to_px(left_mm, pagespec.dpi)
+    offx_right = mm_to_px(right_mm, pagespec.dpi)
+    offy_top   = mm_to_px(top_mm, pagespec.dpi)
+    offy_bottom= mm_to_px(bottom_mm, pagespec.dpi)
     for (cx, cy, w, h) in img_rects:
-        x_left = cx; x_right = cx + w
+        x_left = cx + offx_left; x_right = cx + w + offx_right
         draw.line([(x_left, 0), (x_left, L)], fill=color, width=stroke_px)
         draw.line([(x_left, H - L), (x_left, H)], fill=color, width=stroke_px)
         draw.line([(x_right, 0), (x_right, L)], fill=color, width=stroke_px)
         draw.line([(x_right, H - L), (x_right, H)], fill=color, width=stroke_px)
-        y_top = cy; y_bottom = cy + h
+        y_top = cy + offy_top; y_bottom = cy + h + offy_bottom
         draw.line([(0, y_top), (L, y_top)], fill=color, width=stroke_px)
         draw.line([(W - L, y_top), (W, y_top)], fill=color, width=stroke_px)
         draw.line([(0, y_bottom), (L, y_bottom)], fill=color, width=stroke_px)
@@ -737,6 +765,12 @@ else:
         target_h_mm = float(size_state.get("h", native_h_mm))
         scale_percent = None
 
+    
+    # --- Safe defaults for per-side photo-edge offsets (ensure defined even if UI not run yet) ---
+    photo_margin_mark_offset_b_mm = locals().get("photo_margin_mark_offset_b_mm", 0.0)
+    photo_margin_mark_offset_d_mm = locals().get("photo_margin_mark_offset_d_mm", 0.0)
+    photo_margin_mark_offset_u_mm = locals().get("photo_margin_mark_offset_u_mm", 0.0)
+    photo_margin_mark_offset_n_mm = locals().get("photo_margin_mark_offset_n_mm", 0.0)
     layout = LayoutSpec(
         gutter_mm=gutter_mm, binding_margin_mm=binding_mm,
         flip_from=flip_from, binding_side=binding_side,
@@ -762,6 +796,10 @@ else:
         show_filename_in_bottom_margin=show_filename_in_bottom_margin,
         filename_font_mm=filename_font_mm, filename_color=hex_to_rgba(filename_color_hex),
         filename_x_offset_mm=filename_x_offset_mm, filename_y_offset_mm=filename_y_offset_mm,
+        photo_margin_mark_offset_b_mm=photo_margin_mark_offset_b_mm,
+        photo_margin_mark_offset_d_mm=photo_margin_mark_offset_d_mm,
+        photo_margin_mark_offset_u_mm=photo_margin_mark_offset_u_mm,
+        photo_margin_mark_offset_n_mm=photo_margin_mark_offset_n_mm,
         show_image_debug_overlay=show_image_debug_overlay, debug_font_mm=debug_font_mm,
         user_font_path=(None),
     )
